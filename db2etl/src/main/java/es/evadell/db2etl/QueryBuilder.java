@@ -1,4 +1,4 @@
-package es.bancamarch.db2etl;
+package es.evadell.db2etl;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -11,9 +11,9 @@ import java.util.Map;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import es.bancamarch.db2etl.model.Column;
-import es.bancamarch.db2etl.model.Model;
-import es.bancamarch.db2etl.model.Table;
+import es.evadell.db2etl.model.Column;
+import es.evadell.db2etl.model.Model;
+import es.evadell.db2etl.model.Table;
 
 public class QueryBuilder {
 	

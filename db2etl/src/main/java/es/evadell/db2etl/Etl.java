@@ -1,4 +1,4 @@
-package es.bancamarch.db2etl;
+package es.evadell.db2etl;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -6,12 +6,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import es.bancamarch.db2etl.model.Model;
-import es.bancamarch.db2etl.model.Relation;
-import es.bancamarch.db2etl.model.Table;
+import es.evadell.db2etl.model.Model;
+import es.evadell.db2etl.model.Relation;
+import es.evadell.db2etl.model.Table;
 
 public class Etl {
 	private Model model;
@@ -19,13 +20,37 @@ public class Etl {
 	private Connection dstConn;
 	
 	
-	public void copyRow(String tableName, List<Pair<String, Object>> values) throws Exception {
+	public void copyRows(String tableName, List<Pair<String, Object>> values) throws Exception {
 		Table table = model.getTablas().get(tableName);
 		
 		List<List<Object>> results = select(srcConn, table, values);
+		for(List<Object> row:results) {
+			insertRow(table,row);
+		}
 		//checkParentDependencies(table,results);
 		
 		
+	}
+
+	private void insertRow(Table table, List<Object> row) {
+		copyChildRows(table,row);
+		
+	}
+
+	private void copyChildRows(Table table, List<Object> row) {
+		List<Relation> parentRels = model.getChildRels(table.getName());
+		for(Relation r:parentRels) {
+			String childTableName = r.getChildTable();
+			Table childTable = model.getTablas().get(childTableName);
+			List<Pair<String, Object>> fk = getFkValues(table,row,r);
+		}
+		
+	}
+
+	private List<Pair<String, Object>> getFkValues(Table table, List<Object> row, Relation rel) {
+		Stream<String> parentPkColNames = rel.getForeignKeyColumns().stream().map(p->p.getLeft());
+		
+		return null;
 	}
 
 	private static List<List<Object>> select(Connection conn, Table table, List<Pair<String, Object>> values) throws Exception, SQLException {

@@ -1,4 +1,4 @@
-package es.bancamarch.db2etl.model;
+package es.evadell.db2etl.model;
 
 public class Column {
 	private String name;

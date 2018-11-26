@@ -1,4 +1,4 @@
-package es.bancamarch.db2etl.model;
+package es.evadell.db2etl.model;
 
 import java.util.List;
 
@@ -6,15 +6,15 @@ import org.apache.commons.lang3.tuple.Pair;
 
 public class Relation {
 
-	private String childTable;
+	private Table childTable;
 	private String relName;
-	private String parentTable;
+	private Table parentTable;
 	private List<Pair<String,String>> foreignKeyColumns;
 	
-	public String getChildTable() {
+	public Table getChildTable() {
 		return childTable;
 	}
-	public void setChildTable(String childTable) {
+	public void setChildTable(Table childTable) {
 		this.childTable = childTable;
 	}
 	public String getRelName() {
@@ -23,10 +23,10 @@ public class Relation {
 	public void setRelName(String relName) {
 		this.relName = relName;
 	}
-	public String getParentTable() {
+	public Table getParentTable() {
 		return parentTable;
 	}
-	public void setParentTable(String parentTable) {
+	public void setParentTable(Table parentTable) {
 		this.parentTable = parentTable;
 	}
 	public List<Pair<String, String>> getForeignKeyColumns() {

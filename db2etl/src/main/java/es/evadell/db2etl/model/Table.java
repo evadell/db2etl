@@ -1,4 +1,4 @@
-package es.bancamarch.db2etl.model;
+package es.evadell.db2etl.model;
 
 import java.util.Comparator;
 import java.util.List;
@@ -8,10 +8,11 @@ import java.util.stream.Collectors;
 
 public class Table {
 	private String name;
-	private String dbName;
+	private String creator;
 	private String remarks;
 	private String label;
-	private List<Column> columns;	
+	private List<Column> columns;
+	private List<Relation> childRelations;
 	
 	public List<Column> getPrimaryKey() {
 		return columns.stream().filter(s->s.getKeySeq()>0).sorted(Comparator.comparingInt(Column::getKeySeq)).collect(Collectors.toList());
@@ -23,14 +24,6 @@ public class Table {
 
 	public void setName(String name) {
 		this.name = name;
-	}
-
-	public String getDbName() {
-		return dbName;
-	}
-
-	public void setDbName(String dbName) {
-		this.dbName = dbName;
 	}
 
 	public String getRemarks() {
@@ -59,6 +52,22 @@ public class Table {
 
 	public Optional<Column> getColumn(String key) {
 		return columns.stream().filter(s->s.getName().equals(key)).findFirst();
+	}
+
+	public String getCreator() {
+		return creator;
+	}
+
+	public void setCreator(String creator) {
+		this.creator = creator;
+	}
+
+	public List<Relation> getChildRelations() {
+		return childRelations;
+	}
+
+	public void setChildRelations(List<Relation> childRelations) {
+		this.childRelations = childRelations;
 	}
 
 
