@@ -31,8 +31,8 @@ public class QueryBuilder {
 		return statement;
 	}
 	
-	public static PreparedStatement buildInsertStatement(Model model, Connection conn, String tableName, List<Pair<String, Object>> values) throws Exception {
-		Table table = model.getTablas().get(tableName);
+	public static PreparedStatement buildInsertStatement(Model model, Connection conn, String creator, String tableName, List<Pair<String, Object>> values) throws Exception {
+		Table table = model.getTable(creator, tableName);
 		
 		String cmd = buildInsertCmd(table);
 		PreparedStatement statement = conn.prepareStatement(cmd);

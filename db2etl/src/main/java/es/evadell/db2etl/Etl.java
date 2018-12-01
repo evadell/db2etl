@@ -20,8 +20,8 @@ public class Etl {
 	private Connection dstConn;
 	
 	
-	public void copyRows(String tableName, List<Pair<String, Object>> values) throws Exception {
-		Table table = model.getTablas().get(tableName);
+	public void copyRows(String creator, String tableName, List<Pair<String, Object>> values) throws Exception {
+		Table table = model.getTable(creator, tableName);
 		
 		List<List<Object>> results = select(srcConn, table, values);
 		for(List<Object> row:results) {
@@ -40,8 +40,7 @@ public class Etl {
 	private void copyChildRows(Table table, List<Object> row) {
 		List<Relation> parentRels = model.getChildRels(table.getName());
 		for(Relation r:parentRels) {
-			String childTableName = r.getChildTable();
-			Table childTable = model.getTablas().get(childTableName);
+			Table childTable = r.getChildTable();
 			List<Pair<String, Object>> fk = getFkValues(table,row,r);
 		}
 		
@@ -94,8 +93,7 @@ public class Etl {
 		for(List<Object> srcCurrentRow:results) {
 			List<Relation> parentRels = model.getParentRels(table.getName());
 			for(Relation r:parentRels) {
-				String parentTableName = r.getParentTable();
-				Table parentTable = model.getTablas().get(parentTableName);
+				Table parentTable = r.getParentTable();
 				checkExistance(dstConn, parentTable, getFkValues(r,srcCurrentRow));
 			}
 		}

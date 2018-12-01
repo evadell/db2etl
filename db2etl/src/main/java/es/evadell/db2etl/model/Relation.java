@@ -1,5 +1,6 @@
 package es.evadell.db2etl.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -9,7 +10,7 @@ public class Relation {
 	private Table childTable;
 	private String relName;
 	private Table parentTable;
-	private List<Pair<String,String>> foreignKeyColumns;
+	private List<Pair<String,String>> foreignKeyColumns = new ArrayList<Pair<String,String>>();
 	
 	public Table getChildTable() {
 		return childTable;
@@ -34,6 +35,15 @@ public class Relation {
 	}
 	public void setForeignKeyColumns(List<Pair<String, String>> foreignKeyColumns) {
 		this.foreignKeyColumns = foreignKeyColumns;
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Relation) {
+			Relation other = (Relation) obj;
+			return this.getRelName().equals(other.getRelName());
+		}
+		return super.equals(obj);
 	}
 	
 	
