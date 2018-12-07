@@ -4,6 +4,10 @@
 	<groupId>es.bancamarch</groupId>
 	<artifactId>db2etl</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<properties>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
@@ -15,6 +19,12 @@
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
 			<version>1.7.25</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/log4j/log4j -->
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.17</version>
 		</dependency>
 
 	</dependencies>

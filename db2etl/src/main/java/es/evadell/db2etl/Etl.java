@@ -5,7 +5,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Stack;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -16,14 +21,57 @@ import es.evadell.db2etl.model.Table;
 
 public class Etl {
 	private Model model;
+	private Map<String,List<List<Object>>> rowTree = new HashMap<String, List<List<Object>>>();
 	private Connection srcConn;
 	private Connection dstConn;
 	
+	public void getRowTree(String creator, String tableName, List<Pair<String, Object>> values) throws Exception {
+		Table table = model.getTable(creator, tableName);
+		
+		List<List<Object>> results = select(srcConn, table, values);
+		
+		for(Relation rel:table.getParentRelations()) {
+			Table parentTable = rel.getParentTable();
+			
+		}
+	}
 	
+	private void getDescentantRows(Relation rel, List<Pair<String,Object>> values) throws SQLException, Exception {
+		Table table = rel.getChildTable();
+		List<List<Object>> results = select(srcConn, table, values);
+		List<List<Object>> rows = rowTree.get(table.getName());
+		if (rows==null) rowTree.put(table.getName(),results);
+		else rows.addAll(results);
+		for(Relation r:table.getParentRelations()) {
+			if (r.equals(rel)) continue;
+			for(List<Object> row:results) {
+				List<Pair<String,Object>> fkValues = getRowFkValues(r,row,true);
+				getAscentantRows(r,fkValues);
+			}
+
+		}
+		for(Relation r:table.getChildRelations()) {
+			for(List<Object> row:results) {
+				List<Pair<String,Object>> fkValues = getRowFkValues(r,row,false);
+				getDescentantRows(r,fkValues);
+			}
+		}
+	}
+	
+	private List<Pair<String, Object>> getRowFkValues(Relation r, List<Object> row, boolean child) {
+		if (child) {
+			for(List<Pair<String, String>> fknl:r.getForeignKeyColumns()) {
+				
+			}
+		}
+		return null;
+	}
+
 	public void copyRows(String creator, String tableName, List<Pair<String, Object>> values) throws Exception {
 		Table table = model.getTable(creator, tableName);
 		
 		List<List<Object>> results = select(srcConn, table, values);
+		rowTree.put(tableName, results);
 		for(List<Object> row:results) {
 			insertRow(table,row);
 		}
@@ -33,7 +81,7 @@ public class Etl {
 	}
 
 	private void insertRow(Table table, List<Object> row) {
-		copyChildRows(table,row);
+		//copyChildRows(table,row);
 		
 	}
 
