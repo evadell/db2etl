@@ -28,28 +28,22 @@ public class Etl {
 	public void getRowTree(String creator, String tableName, List<Pair<String, Object>> values) throws Exception {
 		Table table = model.getTable(creator, tableName);
 		
-		List<List<Object>> results = select(srcConn, table, values);
+		List<List<Object>> rset = select(srcConn, table, values);
 		
-		for(Relation rel:table.getParentRelations()) {
-			Table parentTable = rel.getParentTable();
-			
-		}
+		getRowsetAscendantRows(table, rset, null);
+		getRowsetDescendantRows(table, rset);
+		
 	}
 	
 	private void getDescentantRows(Relation rel, List<Pair<String,Object>> values) throws SQLException, Exception {
 		Table table = rel.getChildTable();
-		List<List<Object>> results = select(srcConn, table, values);
-		List<List<Object>> rows = rowTree.get(table.getName());
-		if (rows==null) rowTree.put(table.getName(),results);
-		else rows.addAll(results);
-		for(Relation r:table.getParentRelations()) {
-			if (r.equals(rel)) continue;
-			for(List<Object> row:results) {
-				List<Pair<String,Object>> fkValues = getRowFkValues(r,row,true);
-				getAscentantRows(r,fkValues);
-			}
+		List<List<Object>> rset = select(srcConn, table, values);
+		storeRows(table, rset);
+		getRowsetAscendantRows(table, rset, rel);
+		getRowsetDescendantRows(table, rset);
+	}
 
-		}
+	private void getRowsetDescendantRows(Table table, List<List<Object>> results) throws SQLException, Exception {
 		for(Relation r:table.getChildRelations()) {
 			for(List<Object> row:results) {
 				List<Pair<String,Object>> fkValues = getRowFkValues(r,row,false);
@@ -57,14 +51,50 @@ public class Etl {
 			}
 		}
 	}
+
+	private void storeRows(Table table, List<List<Object>> results) {
+		List<List<Object>> rows = rowTree.get(table.getName());
+		if (rows==null) rowTree.put(table.getName(),results);
+		else rows.addAll(results);
+	}
 	
-	private List<Pair<String, Object>> getRowFkValues(Relation r, List<Object> row, boolean child) {
-		if (child) {
-			for(List<Pair<String, String>> fknl:r.getForeignKeyColumns()) {
-				
+	private void getAscentantRows(Relation rel, List<Pair<String, Object>> values) throws SQLException, Exception {
+		Table table = rel.getParentTable();
+		List<List<Object>> rset = select(srcConn, table, values);
+		storeRows(table,rset);
+		getRowsetAscendantRows(table, rset, null);
+	}
+
+	private void getRowsetAscendantRows(Table table, List<List<Object>> results, Relation sourceRel) throws SQLException, Exception {
+		for(Relation r:table.getParentRelations()) {
+			for(List<Object> row:results) {
+				if (r.equals(sourceRel)) continue;
+				List<Pair<String,Object>> fkValues = getRowFkValues(r,row,true);
+				getAscentantRows(r,fkValues);
 			}
 		}
-		return null;
+	}
+
+	private List<Pair<String, Object>> getRowFkValues(Relation r, List<Object> row, boolean isChildRow) {
+		List<Pair<String, Object>> fk = new ArrayList<Pair<String,Object>>();
+		if (!isChildRow) {
+			Table tbl = r.getChildTable();
+			for(Pair<String, String> fknp:r.getForeignKeyColumns()) {
+				String childColName = fknp.getLeft();
+				String parentColName = fknp.getRight();
+				Object value = row.get(tbl.getColumn(parentColName).get().getColno());
+				fk.add(Pair.of(childColName, value));
+			}
+		} else {
+			Table tbl = r.getParentTable();
+			for(Pair<String, String> fknp:r.getForeignKeyColumns()) {
+				String childColName = fknp.getLeft();
+				String parentColName = fknp.getRight();
+				Object value = row.get(tbl.getColumn(childColName).get().getColno());
+				fk.add(Pair.of(parentColName, value));
+			}
+		}
+		return fk;
 	}
 
 	public void copyRows(String creator, String tableName, List<Pair<String, Object>> values) throws Exception {
@@ -136,6 +166,7 @@ public class Etl {
 		}
 		return results;
 	}
+	
 
 	private void checkParentDependencies(Table table, List<List<Object>> results) {
 		for(List<Object> srcCurrentRow:results) {
