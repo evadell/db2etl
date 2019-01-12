@@ -15,180 +15,136 @@ import java.util.stream.Stream;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import es.evadell.db2etl.model.Column;
 import es.evadell.db2etl.model.Model;
 import es.evadell.db2etl.model.Relation;
 import es.evadell.db2etl.model.Table;
 
 public class Etl {
 	private Model model;
-	private Map<String,List<List<Object>>> rowTree = new HashMap<String, List<List<Object>>>();
+	private Map<String, List<List<Object>>> rowTree = new HashMap<String, List<List<Object>>>();
+	private RowGraph rt;
 	private Connection srcConn;
 	private Connection dstConn;
-	
-	public void getRowTree(String creator, String tableName, List<Pair<String, Object>> values) throws Exception {
+
+	public void getRowGraph(String creator, String tableName, ColValues values) throws SQLException, Exception {
 		Table table = model.getTable(creator, tableName);
-		
-		List<List<Object>> rset = select(srcConn, table, values);
-		
-		getRowsetAscendantRows(table, rset, null);
-		getRowsetDescendantRows(table, rset);
-		
-	}
-	
-	private void getDescentantRows(Relation rel, List<Pair<String,Object>> values) throws SQLException, Exception {
-		Table table = rel.getChildTable();
-		List<List<Object>> rset = select(srcConn, table, values);
-		storeRows(table, rset);
-		getRowsetAscendantRows(table, rset, rel);
-		getRowsetDescendantRows(table, rset);
+
+		RowSet rset = select(srcConn, table, values);
+
+		for (ColValues row : rset.getRows()) {
+			RowGraphNode rowGraphNode = new RowGraphNode(table, row);
+			rt.addNode(rowGraphNode);
+			getNodeAscendantRows(rowGraphNode);
+			getNodeDescendantRows(rowGraphNode);
+		}
+
 	}
 
-	private void getRowsetDescendantRows(Table table, List<List<Object>> results) throws SQLException, Exception {
-		for(Relation r:table.getChildRelations()) {
-			for(List<Object> row:results) {
-				List<Pair<String,Object>> fkValues = getRowFkValues(r,row,false);
-				getDescentantRows(r,fkValues);
+	private void getNodeAscendantRows(RowGraphNode childNode) throws SQLException, Exception {
+		ColValues row = childNode.getValues();
+		Table table = childNode.getTable();
+		for (Relation r : table.getParentRelations()) {
+			Table parentTable = r.getParentTable();
+			ColValues fkValues = getRowFkValues(r, row, true);
+			RowSet rset = select(srcConn, parentTable, fkValues);
+			for (ColValues prow : rset.getRows()) {
+				RowGraphNode rowGraphNode = new RowGraphNode(table, prow);
+				if (rt.addNode(rowGraphNode))
+					getNodeAscendantRows(rowGraphNode);
+				RowGraphEdge e = new RowGraphEdge();
+				e.setRel(r);
+				e.setParent(rowGraphNode);
+				e.setChild(childNode);
+				rt.addEdge(e);
 			}
 		}
 	}
 
-	private void storeRows(Table table, List<List<Object>> results) {
-		List<List<Object>> rows = rowTree.get(table.getName());
-		if (rows==null) rowTree.put(table.getName(),results);
-		else rows.addAll(results);
-	}
-	
-	private void getAscentantRows(Relation rel, List<Pair<String, Object>> values) throws SQLException, Exception {
-		Table table = rel.getParentTable();
-		List<List<Object>> rset = select(srcConn, table, values);
-		storeRows(table,rset);
-		getRowsetAscendantRows(table, rset, null);
-	}
-
-	private void getRowsetAscendantRows(Table table, List<List<Object>> results, Relation sourceRel) throws SQLException, Exception {
-		for(Relation r:table.getParentRelations()) {
-			for(List<Object> row:results) {
-				if (r.equals(sourceRel)) continue;
-				List<Pair<String,Object>> fkValues = getRowFkValues(r,row,true);
-				getAscentantRows(r,fkValues);
+	private void getNodeDescendantRows(RowGraphNode parentNode) throws SQLException, Exception {
+		ColValues row = parentNode.getValues();
+		Table table = parentNode.getTable();
+		for (Relation r : table.getChildRelations()) {
+			Table childTable = r.getChildTable();
+			ColValues fkValues = getRowFkValues(r, row, false);
+			RowSet rset = select(srcConn, childTable, fkValues);
+			for (ColValues crow : rset.getRows()) {
+				RowGraphNode rowGraphNode = new RowGraphNode(table, crow);
+				if (rt.addNode(rowGraphNode))
+					getNodeDescendantRows(rowGraphNode);
+				RowGraphEdge e = new RowGraphEdge();
+				e.setRel(r);
+				e.setParent(parentNode);
+				e.setChild(rowGraphNode);
+				rt.addEdge(e);
 			}
 		}
 	}
 
-	private List<Pair<String, Object>> getRowFkValues(Relation r, List<Object> row, boolean isChildRow) {
-		List<Pair<String, Object>> fk = new ArrayList<Pair<String,Object>>();
-		if (!isChildRow) {
-			Table tbl = r.getChildTable();
-			for(Pair<String, String> fknp:r.getForeignKeyColumns()) {
+	private ColValues getRowFkValues(Relation r, ColValues row, boolean isChildRow) {
+		ColValues fk = new ColValues();
+		if (isChildRow) {
+			Table tbl = r.getParentTable();
+			for (Pair<String, String> fknp : r.getForeignKeyColumns()) {
 				String childColName = fknp.getLeft();
+				Object value = row.get(childColName);
+
 				String parentColName = fknp.getRight();
-				Object value = row.get(tbl.getColumn(parentColName).get().getColno());
-				fk.add(Pair.of(childColName, value));
+				Column parentCol = tbl.getColumn(parentColName);
+				fk.add(new ColValue(parentCol, value));
 			}
 		} else {
-			Table tbl = r.getParentTable();
-			for(Pair<String, String> fknp:r.getForeignKeyColumns()) {
-				String childColName = fknp.getLeft();
+			Table tbl = r.getChildTable();
+			for (Pair<String, String> fknp : r.getForeignKeyColumns()) {
 				String parentColName = fknp.getRight();
-				Object value = row.get(tbl.getColumn(childColName).get().getColno());
-				fk.add(Pair.of(parentColName, value));
+				Object value = row.get(parentColName);
+
+				String childColName = fknp.getLeft();
+				Column childCol = tbl.getColumn(childColName);
+				fk.add(new ColValue(childCol, value));
 			}
 		}
 		return fk;
 	}
 
-	public void copyRows(String creator, String tableName, List<Pair<String, Object>> values) throws Exception {
-		Table table = model.getTable(creator, tableName);
-		
-		List<List<Object>> results = select(srcConn, table, values);
-		rowTree.put(tableName, results);
-		for(List<Object> row:results) {
-			insertRow(table,row);
-		}
-		//checkParentDependencies(table,results);
-		
-		
-	}
-
-	private void insertRow(Table table, List<Object> row) {
-		//copyChildRows(table,row);
-		
-	}
-
-	private void copyChildRows(Table table, List<Object> row) {
-		List<Relation> parentRels = model.getChildRels(table.getName());
-		for(Relation r:parentRels) {
-			Table childTable = r.getChildTable();
-			List<Pair<String, Object>> fk = getFkValues(table,row,r);
-		}
-		
-	}
-
-	private List<Pair<String, Object>> getFkValues(Table table, List<Object> row, Relation rel) {
-		Stream<String> parentPkColNames = rel.getForeignKeyColumns().stream().map(p->p.getLeft());
-		
-		return null;
-	}
-
-	private static List<List<Object>> select(Connection conn, Table table, List<Pair<String, Object>> values) throws Exception, SQLException {
-		List<List<Object>> results;
-		results = new ArrayList<List<Object>>();
+	private static RowSet select(Connection conn, Table table, ColValues values) throws Exception, SQLException {
+		RowSet ros = new RowSet();
 
 		PreparedStatement selectStmt = QueryBuilder.buildSelectStatement(conn, table, values);
-		ResultSet resulset = selectStmt.executeQuery();
-		while (resulset.next()) {
-			ArrayList<Object> r = new ArrayList<Object>();
-			results.add(r);
-			for(int i=0;i<table.getColumns().size();i++) {
-				String type = table.getColumns().get(i).getColtype();
+		ResultSet rs = selectStmt.executeQuery();
+		while (rs.next()) {
+			ColValues cvs = new ColValues();
+			for (int i = 0; i < table.getColumns().size(); i++) {
+				Column col = table.getColumns().get(i);
+				String type = col.getColtype();
+				Object val;
 				switch (type) {
 				case "CHAR":
 				case "VARCHAR":
-					r.add(resulset.getString(i));
+					val = rs.getString(i);
 					break;
 				case "DECIMAL":
-					r.add(resulset.getBigDecimal(i));
+					val = rs.getBigDecimal(i);
 					break;
 				case "INTEGER":
 				case "SMALLINT":
-					r.add(resulset.getInt(i));
+					val = rs.getInt(i);
 					break;
 				case "TIME":
-					r.add(resulset.getTime(i));
+					val = rs.getTime(i);
 					break;
 				case "TIMESTMP":
-					r.add(resulset.getTimestamp(i));
+					val = rs.getTimestamp(i);
 					break;
 				default:
 					throw new Exception("Tipo de campo no soportado");
 				}
+				ColValue cv = new ColValue(col, val);
+				cvs.add(cv);
 			}
+			ros.add(cvs);
 		}
-		return results;
-	}
-	
-
-	private void checkParentDependencies(Table table, List<List<Object>> results) {
-		for(List<Object> srcCurrentRow:results) {
-			List<Relation> parentRels = model.getParentRels(table.getName());
-			for(Relation r:parentRels) {
-				Table parentTable = r.getParentTable();
-				checkExistance(dstConn, parentTable, getFkValues(r,srcCurrentRow));
-			}
-		}
+		return ros;
 	}
 
-
-
-
-
-	private void checkExistance(Connection dstConn2, Table parentTable, Object fkValues) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	private Object getFkValues(Relation r, List<Object> srcCurrentRow) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 }

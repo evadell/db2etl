@@ -17,13 +17,13 @@ import es.evadell.db2etl.model.Table;
 
 public class QueryBuilder {
 	
-	public static PreparedStatement buildSelectStatement(Connection conn, Table table, List<Pair<String, Object>> values) throws Exception {
+	public static PreparedStatement buildSelectStatement(Connection conn, Table table, ColValues values) throws Exception {
 				
 		String cmd = buildSelectCmd(table, values);
 		PreparedStatement statement = conn.prepareStatement(cmd);
 		int i=0;
-		for(Pair<String, Object> c:values) {
-			String type = table.getColumn(c.getKey()).get().getColtype();
+		for(ColValue c:values.getList()) {
+			String type = c.getCol().getColtype();
 			Object value=c.getValue();
 			setParameterValue(statement, i, type, value);
 			i++;
@@ -38,7 +38,7 @@ public class QueryBuilder {
 		PreparedStatement statement = conn.prepareStatement(cmd);
 		int i=0;
 		for(Pair<String, Object> c:values) {
-			String type = table.getColumn(c.getKey()).get().getColtype();
+			String type = table.getColumn(c.getKey()).getColtype();
 			Object value=c.getValue();
 			setParameterValue(statement, i, type, value);
 			i++;
@@ -98,7 +98,7 @@ public class QueryBuilder {
 		}
 	}
 
-	private static String buildSelectCmd(Table table, List<Pair<String, Object>> pk) {
+	private static String buildSelectCmd(Table table, ColValues pk) {
 		
 		StringBuilder strb = new StringBuilder("select ");
 		int i=0;
@@ -109,9 +109,9 @@ public class QueryBuilder {
 		}
 		strb.append(" from ").append(table.getName()).append(" where ");
 		i=0;
-		for(Pair<String, Object> c:pk) {
+		for(ColValue c:pk.getList()) {
 			if (i++>0) strb.append(" and ");
-			strb.append(c.getKey()).append("=?");
+			strb.append(c.getCol().getName()).append("=?");
 		}
 		return strb.toString();
 	}

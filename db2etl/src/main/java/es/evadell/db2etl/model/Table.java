@@ -52,8 +52,10 @@ public class Table {
 		this.columns = columns;
 	}
 
-	public Optional<Column> getColumn(String key) {
-		return columns.stream().filter(s->s.getName().equals(key)).findFirst();
+	public Column getColumn(String key) {
+		Optional<Column> oc = columns.stream().filter(s->s.getName().equals(key)).findFirst();
+		if (oc.isPresent()) return oc.get();
+		else return null;
 	}
 
 	public String getCreator() {
@@ -89,3 +91,4 @@ public class Table {
 		this.parentRelations = parentRelations;
 	}
 }
+ 
